@@ -1,0 +1,1328 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Neon Agent Miner</title>
+  <style>
+    :root{
+      --bg0:#070814;
+      --bg1:#0b0d1f;
+      --text:#e9ecff;
+      --muted:rgba(233,236,255,0.68);
+      --cyan:#35f3ff;
+      --mag:#ff3df2;
+      --lime:#b7ff3d;
+      --danger:#ff4d6d;
+      --ok:#4dff88;
+      --shadow:rgba(0,0,0,0.45);
+      --ring:rgba(53,243,255,0.35);
+      --radius:18px;
+    }
+
+    html,body{
+      height:100%;
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 18% 10%, rgba(255,61,242,0.14), transparent 55%),
+        radial-gradient(900px 600px at 78% 20%, rgba(53,243,255,0.12), transparent 52%),
+        radial-gradient(900px 700px at 50% 95%, rgba(183,255,61,0.08), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+
+    .scanlines{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        repeating-linear-gradient(
+          180deg,
+          rgba(255,255,255,0.03) 0px,
+          rgba(255,255,255,0.03) 1px,
+          rgba(0,0,0,0) 3px,
+          rgba(0,0,0,0) 6px
+        );
+      mix-blend-mode:overlay;
+      opacity:0.35;
+      z-index:3;
+    }
+
+    .grid{
+      position:fixed;
+      inset:-20vh -20vw;
+      pointer-events:none;
+      background:
+        linear-gradient(90deg, rgba(53,243,255,0.06) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255,61,242,0.05) 1px, transparent 1px);
+      background-size: 80px 80px;
+      transform: perspective(900px) rotateX(65deg) translateY(-10vh);
+      transform-origin: center top;
+      opacity:0.35;
+      z-index:1;
+      filter: blur(0.2px);
+    }
+
+    .wrap{
+      position:relative;
+      z-index:2;
+      max-width:1180px;
+      margin:0 auto;
+      padding:28px 18px 40px;
+    }
+
+    header{
+      display:flex;
+      gap:16px;
+      flex-wrap:wrap;
+      align-items:stretch;
+      justify-content:space-between;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:260px;
+    }
+
+    .titleRow{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .logo{
+      width:40px;
+      height:40px;
+      border-radius:12px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(53,243,255,0.9), rgba(53,243,255,0.1) 55%, transparent 70%),
+        radial-gradient(circle at 70% 70%, rgba(255,61,242,0.9), rgba(255,61,242,0.1) 58%, transparent 72%),
+        linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+      box-shadow: 0 18px 60px rgba(53,243,255,0.10), 0 10px 40px rgba(255,61,242,0.10);
+      border:1px solid rgba(255,255,255,0.12);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .logo::after{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: conic-gradient(from 180deg, rgba(53,243,255,0.0), rgba(53,243,255,0.25), rgba(255,61,242,0.25), rgba(183,255,61,0.18), rgba(53,243,255,0.0));
+      animation: spin 10s linear infinite;
+      filter: blur(8px);
+    }
+
+    @keyframes spin{
+      from{ transform:rotate(0deg); }
+      to{ transform:rotate(360deg); }
+    }
+
+    h1{
+      font-size:18px;
+      line-height:1.1;
+      margin:0;
+      letter-spacing:0.4px;
+      text-shadow: 0 0 16px rgba(53,243,255,0.14), 0 0 18px rgba(255,61,242,0.10);
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size:12.5px;
+      line-height:1.4;
+    }
+
+    .topStats{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:stretch;
+      justify-content:flex-end;
+      min-width:300px;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.04));
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:var(--radius);
+      box-shadow: 0 18px 60px var(--shadow);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .statCard{
+      padding:14px 14px 12px;
+      min-width:190px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .statCard::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      border-radius:var(--radius);
+      background: linear-gradient(135deg, rgba(53,243,255,0.18), rgba(255,61,242,0.12), rgba(183,255,61,0.10));
+      filter: blur(14px);
+      opacity:0.55;
+      z-index:0;
+    }
+
+    .statCard > div{
+      position:relative;
+      z-index:1;
+    }
+
+    .label{
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:0.5px;
+      text-transform:uppercase;
+    }
+
+    .big{
+      font-size:20px;
+      margin-top:6px;
+      letter-spacing:0.2px;
+    }
+
+    .small{
+      font-size:12.5px;
+      color:var(--muted);
+      margin-top:6px;
+    }
+
+    main{
+      display:grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap:14px;
+      align-items:start;
+    }
+
+    @media (max-width: 980px){
+      main{ grid-template-columns: 1fr; }
+      .topStats{ justify-content:flex-start; }
+    }
+
+    .panel{
+      padding:14px;
+    }
+
+    .panelHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+
+    .panelTitle{
+      font-size:13px;
+      letter-spacing:0.6px;
+      text-transform:uppercase;
+      color:rgba(233,236,255,0.80);
+    }
+
+    .pill{
+      font-size:12px;
+      color:rgba(233,236,255,0.78);
+      background: rgba(0,0,0,0.25);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:999px;
+      padding:7px 10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background: var(--ok);
+      box-shadow: 0 0 0 6px rgba(77,255,136,0.10);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse{
+      0%{ transform:scale(1); opacity:0.75; }
+      50%{ transform:scale(1.2); opacity:1; }
+      100%{ transform:scale(1); opacity:0.75; }
+    }
+
+    .mineArea{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    @media (max-width: 680px){
+      .mineArea{ grid-template-columns: 1fr; }
+    }
+
+    .bigButton{
+      width:100%;
+      border:0;
+      border-radius:16px;
+      padding:16px 14px;
+      cursor:pointer;
+      color:var(--text);
+      font-size:15px;
+      letter-spacing:0.3px;
+      background:
+        radial-gradient(120% 120% at 30% 20%, rgba(53,243,255,0.22), transparent 60%),
+        radial-gradient(120% 120% at 70% 75%, rgba(255,61,242,0.20), transparent 58%),
+        linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+      border:1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 18px 60px rgba(53,243,255,0.10), 0 18px 60px rgba(255,61,242,0.08);
+      position:relative;
+      overflow:hidden;
+      user-select:none;
+      touch-action:manipulation;
+      transition: transform 90ms ease, filter 120ms ease;
+    }
+
+    .bigButton:hover{
+      filter: brightness(1.05);
+    }
+
+    .bigButton:focus{
+      outline:none;
+      box-shadow: 0 0 0 4px var(--ring), 0 18px 60px rgba(53,243,255,0.12), 0 18px 60px rgba(255,61,242,0.10);
+    }
+
+    .bigButton:active{
+      transform: translateY(1px);
+    }
+
+    .bigButton::after{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: conic-gradient(from 90deg, rgba(255,255,255,0.0), rgba(53,243,255,0.22), rgba(255,61,242,0.20), rgba(183,255,61,0.16), rgba(255,255,255,0.0));
+      filter: blur(14px);
+      opacity:0.7;
+      animation: spin 6s linear infinite;
+    }
+
+    .bigButton > span{
+      position:relative;
+      z-index:1;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-start;
+    }
+
+    .btnTitle{
+      font-size:16px;
+    }
+
+    .btnMeta{
+      font-size:12.5px;
+      color:rgba(233,236,255,0.72);
+    }
+
+    .hint{
+      padding:14px;
+      border-radius:16px;
+      background: rgba(0,0,0,0.22);
+      border:1px solid rgba(255,255,255,0.10);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .hintLine{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      color:rgba(233,236,255,0.84);
+    }
+
+    .hintLine span:last-child{
+      color:rgba(233,236,255,0.72);
+      font-variant-numeric: tabular-nums;
+      text-align:right;
+    }
+
+    .shopList{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .item{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:12px;
+      border-radius:16px;
+      background: rgba(0,0,0,0.22);
+      border:1px solid rgba(255,255,255,0.10);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .item::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: linear-gradient(135deg, rgba(53,243,255,0.10), rgba(255,61,242,0.08), rgba(183,255,61,0.06));
+      filter: blur(16px);
+      opacity:0.40;
+      z-index:0;
+    }
+
+    .itemMain, .itemAction{
+      position:relative;
+      z-index:1;
+    }
+
+    .itemName{
+      font-size:14px;
+      margin:0 0 4px;
+      letter-spacing:0.2px;
+    }
+
+    .itemDesc{
+      font-size:12.5px;
+      color:rgba(233,236,255,0.72);
+      margin:0 0 8px;
+      line-height:1.35;
+    }
+
+    .itemMeta{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      font-size:12px;
+      color:rgba(233,236,255,0.74);
+    }
+
+    .tag{
+      border:1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+      padding:5px 8px;
+      border-radius:999px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .buyBtn{
+      border:1px solid rgba(255,255,255,0.14);
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      cursor:pointer;
+      min-width:130px;
+      text-align:center;
+      font-size:13px;
+      letter-spacing:0.2px;
+      user-select:none;
+      touch-action:manipulation;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      transition: filter 120ms ease, transform 90ms ease;
+    }
+
+    .buyBtn:hover{
+      filter: brightness(1.06);
+    }
+
+    .buyBtn:active{
+      transform: translateY(1px);
+    }
+
+    .buyBtn:focus{
+      outline:none;
+      box-shadow: 0 0 0 4px var(--ring), 0 12px 40px rgba(0,0,0,0.35);
+    }
+
+    .buyBtn[disabled]{
+      opacity:0.45;
+      cursor:not-allowed;
+      filter:none;
+      transform:none;
+    }
+
+    .buyBtn.primary{
+      border-color: rgba(53,243,255,0.28);
+      box-shadow: 0 0 0 2px rgba(53,243,255,0.14), 0 12px 40px rgba(53,243,255,0.06);
+    }
+
+    .buyBtn.mag{
+      border-color: rgba(255,61,242,0.28);
+      box-shadow: 0 0 0 2px rgba(255,61,242,0.14), 0 12px 40px rgba(255,61,242,0.06);
+    }
+
+    .buyBtn.lime{
+      border-color: rgba(183,255,61,0.28);
+      box-shadow: 0 0 0 2px rgba(183,255,61,0.12), 0 12px 40px rgba(183,255,61,0.06);
+    }
+
+    .rightCol{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .console{
+      padding:14px;
+    }
+
+    .log{
+      margin:0;
+      padding:0;
+      list-style:none;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      max-height:260px;
+      overflow:auto;
+    }
+
+    .log li{
+      font-size:12.5px;
+      line-height:1.35;
+      color:rgba(233,236,255,0.80);
+      background: rgba(0,0,0,0.22);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px;
+      padding:10px 10px;
+    }
+
+    .footerRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    .miniBtn{
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.22);
+      color:rgba(233,236,255,0.88);
+      padding:9px 10px;
+      border-radius:14px;
+      cursor:pointer;
+      font-size:12.5px;
+      letter-spacing:0.2px;
+      user-select:none;
+      touch-action:manipulation;
+    }
+
+    .miniBtn:focus{
+      outline:none;
+      box-shadow: 0 0 0 4px var(--ring);
+    }
+
+    .miniBtn.danger{
+      border-color: rgba(255,77,109,0.35);
+      color: rgba(255,150,175,0.95);
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.55);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:999px;
+      padding:10px 12px;
+      color:rgba(233,236,255,0.90);
+      font-size:12.5px;
+      opacity:0;
+      pointer-events:none;
+      z-index:4;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: opacity 160ms ease;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+      max-width:min(560px, 92vw);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toast.show{
+      opacity:1;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="titleRow">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <h1>Neon Agent Miner</h1>
+            <div class="subtitle">AIエージェントが自動でビットコインを採掘し、利益でさらに高性能なAIを雇う放置型クリッカー</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="topStats">
+        <div class="card statCard">
+          <div class="label">残高</div>
+          <div class="big" id="btcBalance">0.00000000 BTC</div>
+          <div class="small" id="satBalance">0 sats</div>
+        </div>
+        <div class="card statCard">
+          <div class="label">採掘レート</div>
+          <div class="big" id="rate">0.00 sats / 秒</div>
+          <div class="small" id="clickPower">クリック: 1 sats</div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="card panel">
+        <div class="panelHeader">
+          <div class="panelTitle">採掘コンソール</div>
+          <div class="pill"><span class="dot" aria-hidden="true"></span><span id="statusText">オンライン</span></div>
+        </div>
+
+        <div class="mineArea">
+          <button class="bigButton" id="mineBtn">
+            <span>
+              <span class="btnTitle">手動で採掘</span>
+              <span class="btnMeta">クリックで satoshi を獲得。AI雇用で自動化が加速</span>
+            </span>
+          </button>
+
+          <div class="hint">
+            <div class="hintLine"><span>総採掘</span><span id="totalMined">0 sats</span></div>
+            <div class="hintLine"><span>雇用AI数</span><span id="agentCount">0</span></div>
+            <div class="hintLine"><span>次の目標</span><span id="nextGoal">エージェントを雇う</span></div>
+            <div class="hintLine"><span>オフライン収益</span><span id="offline">0 sats</span></div>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="panelHeader">
+          <div class="panelTitle">AIエージェント雇用</div>
+          <div class="subtitle" id="shopTip">まずは Micro Miner を雇って放置収益を作ろう</div>
+        </div>
+
+        <div class="shopList" id="agentShop"></div>
+
+        <div style="height:12px"></div>
+
+        <div class="panelHeader">
+          <div class="panelTitle">研究とアップグレード</div>
+          <div class="subtitle">高性能AIを雇うと採掘効率が上がり、新しいエージェントが解禁される</div>
+        </div>
+
+        <div class="shopList" id="upgradeShop"></div>
+
+      </section>
+
+      <aside class="rightCol">
+        <section class="card console">
+          <div class="panelHeader">
+            <div class="panelTitle">システムログ</div>
+            <div class="subtitle" id="saveState">未保存</div>
+          </div>
+          <ol class="log" id="log"></ol>
+          <div class="footerRow">
+            <button class="miniBtn" id="saveBtn">保存</button>
+            <button class="miniBtn" id="exportBtn">エクスポート</button>
+            <button class="miniBtn" id="importBtn">インポート</button>
+            <button class="miniBtn danger" id="resetBtn">リセット</button>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panelHeader">
+            <div class="panelTitle">遊び方</div>
+            <div class="subtitle">ブラウザで開くだけ。保存はローカルに行われる</div>
+          </div>
+          <div class="subtitle" style="line-height:1.55">
+            クリックでsatoshiを増やす。<br>
+            増えたsatoshiでAIエージェントを雇う。<br>
+            自動採掘が増えたらアップグレードで新世代AIを解禁する。<br>
+            放置しても自動で増える。
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      const SATS_PER_BTC = 100000000;
+
+      const agentDefs = [
+        {
+          id: "micro",
+          name: "Micro Miner",
+          desc: "軽量エージェント。最初の放置収益を作る。",
+          baseCost: 25,
+          baseRate: 0.8,
+          growth: 1.14,
+          accent: "primary",
+          unlock: () => true
+        },
+        {
+          id: "tool",
+          name: "Tool Runner",
+          desc: "ツール連携でハッシュ探索を高速化。研究で解禁。",
+          baseCost: 420,
+          baseRate: 7.2,
+          growth: 1.15,
+          accent: "mag",
+          unlock: (s) => s.upgrades.tooling
+        },
+        {
+          id: "swarm",
+          name: "Swarm Orchestrator",
+          desc: "複数エージェントを束ねて並列化。研究で解禁。",
+          baseCost: 6200,
+          baseRate: 120,
+          growth: 1.16,
+          accent: "lime",
+          unlock: (s) => s.upgrades.swarm
+        },
+        {
+          id: "quant",
+          name: "Quantum Optimizer",
+          desc: "探索戦略を最適化する高性能AI。研究で解禁。",
+          baseCost: 68000,
+          baseRate: 1900,
+          growth: 1.17,
+          accent: "primary",
+          unlock: (s) => s.upgrades.quantum
+        }
+      ];
+
+      const upgradeDefs = [
+        {
+          id: "starter",
+          name: "新世代モデル: Neon GPT",
+          desc: "クリック採掘が増え、全体の採掘効率が少し上がる。",
+          cost: 900,
+          once: true,
+          effect: (s) => {
+            s.upgrades.starter = true;
+            s.clickPower = s.clickPower + 2;
+            s.multipliers.global = s.multipliers.global + 0.08;
+          },
+          unlock: () => true,
+          accent: "mag"
+        },
+        {
+          id: "tooling",
+          name: "ツール使用許可: Tool API",
+          desc: "Tool Runner が雇えるようになる。全体効率も上昇。",
+          cost: 8200,
+          once: true,
+          effect: (s) => {
+            s.upgrades.tooling = true;
+            s.multipliers.global = s.multipliers.global + 0.12;
+          },
+          unlock: (s) => s.upgrades.starter,
+          accent: "primary"
+        },
+        {
+          id: "swarm",
+          name: "マルチエージェント: Swarm Mode",
+          desc: "Swarm Orchestrator を解禁。採掘効率が大きく上昇。",
+          cost: 78000,
+          once: true,
+          effect: (s) => {
+            s.upgrades.swarm = true;
+            s.multipliers.global = s.multipliers.global + 0.30;
+            s.clickPower = s.clickPower + 10;
+          },
+          unlock: (s) => s.upgrades.tooling,
+          accent: "lime"
+        },
+        {
+          id: "quantum",
+          name: "次世代最適化: Quantum Search",
+          desc: "Quantum Optimizer を解禁。さらに効率が上がる。",
+          cost: 540000,
+          once: true,
+          effect: (s) => {
+            s.upgrades.quantum = true;
+            s.multipliers.global = s.multipliers.global + 0.55;
+          },
+          unlock: (s) => s.upgrades.swarm,
+          accent: "primary"
+        },
+        {
+          id: "cooling",
+          name: "冷却強化: Cryo Rack",
+          desc: "自動採掘に追加ブースト。繰り返し購入できる。",
+          cost: 24000,
+          once: false,
+          effect: (s) => {
+            s.upgrades.cooling = (s.upgrades.cooling || 0) + 1;
+            s.multipliers.global = s.multipliers.global + 0.06;
+          },
+          unlock: (s) => s.upgrades.tooling,
+          accent: "mag"
+        }
+      ];
+
+      const STORAGE_KEY = "neonAgentMinerSave_v1";
+
+      const ui = {
+        btcBalance: document.getElementById("btcBalance"),
+        satBalance: document.getElementById("satBalance"),
+        rate: document.getElementById("rate"),
+        clickPower: document.getElementById("clickPower"),
+        totalMined: document.getElementById("totalMined"),
+        agentCount: document.getElementById("agentCount"),
+        nextGoal: document.getElementById("nextGoal"),
+        offline: document.getElementById("offline"),
+        shopTip: document.getElementById("shopTip"),
+        agentShop: document.getElementById("agentShop"),
+        upgradeShop: document.getElementById("upgradeShop"),
+        log: document.getElementById("log"),
+        statusText: document.getElementById("statusText"),
+        saveState: document.getElementById("saveState"),
+        mineBtn: document.getElementById("mineBtn"),
+        saveBtn: document.getElementById("saveBtn"),
+        exportBtn: document.getElementById("exportBtn"),
+        importBtn: document.getElementById("importBtn"),
+        resetBtn: document.getElementById("resetBtn"),
+        toast: document.getElementById("toast")
+      };
+
+      function nowMs(){ return Date.now(); }
+
+      function safeMul(a, b){
+        if (!isFinite(a) || !isFinite(b)) return Infinity;
+        if (a <= 0 || b <= 0) return 0;
+        const x = Math.log(a) + Math.log(b);
+        if (x > 709) return Infinity;
+        return Math.exp(x);
+      }
+
+      function safeDiv(a, b){
+        if (!isFinite(a) || !isFinite(b)) return Infinity;
+        if (a <= 0 || b <= 0) return 0;
+        const x = Math.log(a) - Math.log(b);
+        if (x > 709) return Infinity;
+        return Math.exp(x);
+      }
+
+      function clampNonNeg(n){
+        if (!isFinite(n)) return Infinity;
+        if (n < 0) return 0;
+        return n;
+      }
+
+      function formatSatsInt(n){
+        if (!isFinite(n)) return "∞ sats";
+        const v = Math.floor(n);
+        if (v < 1000000) return v.toLocaleString("ja-JP") + " sats";
+        if (v < 1000000000000){
+          const k = Math.floor(v / 1000);
+          return k.toLocaleString("ja-JP") + "k sats";
+        }
+        return v.toExponential(2).replace("e+", "e") + " sats";
+      }
+
+      function formatSatsRate(n){
+        if (!isFinite(n)) return "∞ sats";
+        if (n < 1000){
+          const scaled = Math.round(safeMul(n, 100));
+          const val = scaled / 100;
+          return val.toLocaleString("ja-JP", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " sats";
+        }
+        return formatSatsInt(n);
+      }
+
+      function formatBTCFromSats(sats){
+        if (!isFinite(sats)) return "∞ BTC";
+        const btc = safeDiv(sats, SATS_PER_BTC);
+        if (!isFinite(btc)) return "∞ BTC";
+        return btc.toFixed(8) + " BTC";
+      }
+
+      function makeDefaultState(){
+        return {
+          sats: 0,
+          totalMined: 0,
+          clickPower: 1,
+          agents: {
+            micro: 0,
+            tool: 0,
+            swarm: 0,
+            quant: 0
+          },
+          upgrades: {
+            starter: false,
+            tooling: false,
+            swarm: false,
+            quantum: false,
+            cooling: 0
+          },
+          multipliers: {
+            global: 1
+          },
+          lastTick: nowMs(),
+          lastSave: nowMs(),
+          offlineGainLast: 0,
+          carry: 0,
+          log: []
+        };
+      }
+
+      let state = makeDefaultState();
+
+      function pushLog(msg){
+        const ts = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        state.log.unshift(ts + "  " + msg);
+        if (state.log.length > 20) state.log.length = 20;
+        renderLog();
+      }
+
+      function renderLog(){
+        ui.log.innerHTML = "";
+        for (const line of state.log){
+          const li = document.createElement("li");
+          li.textContent = line;
+          ui.log.appendChild(li);
+        }
+      }
+
+      let toastTimer = 0;
+      function toast(msg){
+        ui.toast.textContent = msg;
+        ui.toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => ui.toast.classList.remove("show"), 1400);
+      }
+
+      function totalAgents(){
+        let c = 0;
+        for (const def of agentDefs){
+          c += state.agents[def.id] || 0;
+        }
+        return c;
+      }
+
+      function globalMultiplier(){
+        let m = state.multipliers.global || 1;
+        const coolingCount = state.upgrades.cooling || 0;
+        if (coolingCount > 0){
+          m = m + safeMul(0.02, coolingCount);
+        }
+        return m;
+      }
+
+      function computeRateSatsPerSec(){
+        let base = 0;
+        for (const def of agentDefs){
+          const count = state.agents[def.id] || 0;
+          if (count > 0){
+            base += safeMul(def.baseRate, count);
+          }
+        }
+        const m = globalMultiplier();
+        return safeMul(base, m);
+      }
+
+      function costForAgent(def){
+        const owned = state.agents[def.id] || 0;
+        const growthPow = Math.pow(def.growth, owned);
+        let cost = safeMul(def.baseCost, growthPow);
+        cost = Math.ceil(cost);
+        return clampNonNeg(cost);
+      }
+
+      function costForUpgrade(def){
+        if (def.once && state.upgrades[def.id]) return Infinity;
+        if (!def.once){
+          const bought = state.upgrades[def.id] || 0;
+          const growthPow = Math.pow(1.22, bought);
+          let c = safeMul(def.cost, growthPow);
+          return Math.ceil(c);
+        }
+        return def.cost;
+      }
+
+      function canAfford(cost){
+        return isFinite(cost) && state.sats >= cost;
+      }
+
+      function spend(cost){
+        state.sats = clampNonNeg(state.sats - cost);
+      }
+
+      function addSats(amount){
+        if (!isFinite(amount)) { state.sats = Infinity; return; }
+        state.sats = clampNonNeg(state.sats + amount);
+        state.totalMined = clampNonNeg(state.totalMined + amount);
+      }
+
+      function mineClick(){
+        const gain = Math.floor(clampNonNeg(state.clickPower));
+        addSats(gain);
+        toast("+" + formatSatsInt(gain));
+      }
+
+      function buyAgent(def){
+        const cost = costForAgent(def);
+        if (!canAfford(cost)) return;
+        spend(cost);
+        state.agents[def.id] = (state.agents[def.id] || 0) + 1;
+        pushLog(def.name + " を雇用。コスト " + formatSatsInt(cost));
+        renderAll();
+      }
+
+      function buyUpgrade(def){
+        const cost = costForUpgrade(def);
+        if (!canAfford(cost)) return;
+        spend(cost);
+        if (def.once){
+          state.upgrades[def.id] = true;
+        } else {
+          state.upgrades[def.id] = (state.upgrades[def.id] || 0) + 1;
+        }
+        def.effect(state);
+        pushLog(def.name + " を研究。コスト " + formatSatsInt(cost));
+        renderAll();
+      }
+
+      function nextGoalText(){
+        if (totalAgents() === 0) return "Micro Miner を雇う";
+        if (!state.upgrades.starter) return "Neon GPT を研究";
+        if (!state.upgrades.tooling) return "Tool API を研究";
+        if (!state.upgrades.swarm) return "Swarm Mode を研究";
+        if (!state.upgrades.quantum) return "Quantum Search を研究";
+        return "冷却強化で効率を積み上げる";
+      }
+
+      function renderTop(){
+        ui.btcBalance.textContent = formatBTCFromSats(state.sats);
+        ui.satBalance.textContent = formatSatsInt(state.sats);
+
+        const r = computeRateSatsPerSec();
+        ui.rate.textContent = formatSatsRate(r) + " / 秒";
+        ui.clickPower.textContent = "クリック: " + formatSatsInt(state.clickPower);
+
+        ui.totalMined.textContent = formatSatsInt(state.totalMined);
+        ui.agentCount.textContent = totalAgents().toLocaleString("ja-JP");
+        ui.nextGoal.textContent = nextGoalText();
+
+        ui.offline.textContent = formatSatsInt(state.offlineGainLast || 0);
+      }
+
+      function renderAgentShop(){
+        ui.agentShop.innerHTML = "";
+        const unlocked = agentDefs.filter(d => d.unlock(state));
+        ui.shopTip.textContent = unlocked.length === 0 ? "研究が必要。まずは手動で採掘しよう" : "AIを雇うほど自動採掘が増える";
+
+        for (const def of agentDefs){
+          const isOpen = def.unlock(state);
+          const wrap = document.createElement("div");
+          wrap.className = "item";
+          const main = document.createElement("div");
+          main.className = "itemMain";
+
+          const name = document.createElement("div");
+          name.className = "itemName";
+          name.textContent = def.name + (isOpen ? "" : "  (未解禁)");
+          const desc = document.createElement("div");
+          desc.className = "itemDesc";
+          desc.textContent = def.desc;
+
+          const meta = document.createElement("div");
+          meta.className = "itemMeta";
+
+          const owned = state.agents[def.id] || 0;
+          const rateEach = def.baseRate;
+          const cost = isOpen ? costForAgent(def) : Infinity;
+
+          const t1 = document.createElement("span");
+          t1.className = "tag";
+          t1.textContent = "所持 " + owned.toLocaleString("ja-JP");
+
+          const t2 = document.createElement("span");
+          t2.className = "tag";
+          t2.textContent = "生産 " + formatSatsRate(rateEach) + " / 秒";
+
+          const t3 = document.createElement("span");
+          t3.className = "tag";
+          t3.textContent = "コスト " + (isOpen ? formatSatsInt(cost) : "研究で解禁");
+
+          meta.appendChild(t1);
+          meta.appendChild(t2);
+          meta.appendChild(t3);
+
+          main.appendChild(name);
+          main.appendChild(desc);
+          main.appendChild(meta);
+
+          const action = document.createElement("div");
+          action.className = "itemAction";
+          const btn = document.createElement("button");
+          btn.className = "buyBtn " + def.accent;
+          btn.textContent = isOpen ? "雇う" : "ロック中";
+          btn.disabled = !isOpen || !canAfford(cost);
+          btn.addEventListener("click", () => buyAgent(def));
+          action.appendChild(btn);
+
+          wrap.appendChild(main);
+          wrap.appendChild(action);
+          ui.agentShop.appendChild(wrap);
+        }
+      }
+
+      function renderUpgradeShop(){
+        ui.upgradeShop.innerHTML = "";
+        for (const def of upgradeDefs){
+          const isOpen = def.unlock(state);
+          const wrap = document.createElement("div");
+          wrap.className = "item";
+          const main = document.createElement("div");
+          main.className = "itemMain";
+
+          const name = document.createElement("div");
+          name.className = "itemName";
+
+          const isBought = def.once ? !!state.upgrades[def.id] : ((state.upgrades[def.id] || 0) > 0);
+          const suffix = def.once && isBought ? "  (完了)" : "";
+          name.textContent = def.name + (isOpen ? suffix : "  (未解禁)");
+
+          const desc = document.createElement("div");
+          desc.className = "itemDesc";
+          desc.textContent = def.desc;
+
+          const meta = document.createElement("div");
+          meta.className = "itemMeta";
+
+          const cost = isOpen ? costForUpgrade(def) : Infinity;
+
+          const t1 = document.createElement("span");
+          t1.className = "tag";
+          t1.textContent = def.once ? "一回のみ" : "繰り返し";
+
+          const t2 = document.createElement("span");
+          t2.className = "tag";
+          if (def.once){
+            t2.textContent = "状態 " + (isBought ? "完了" : "未実施");
+          } else {
+            t2.textContent = "回数 " + (state.upgrades[def.id] || 0).toLocaleString("ja-JP");
+          }
+
+          const t3 = document.createElement("span");
+          t3.className = "tag";
+          t3.textContent = "コスト " + (isOpen ? formatSatsInt(cost) : "前提研究が必要");
+
+          meta.appendChild(t1);
+          meta.appendChild(t2);
+          meta.appendChild(t3);
+
+          main.appendChild(name);
+          main.appendChild(desc);
+          main.appendChild(meta);
+
+          const action = document.createElement("div");
+          action.className = "itemAction";
+          const btn = document.createElement("button");
+          btn.className = "buyBtn " + def.accent;
+          btn.textContent = def.once ? (isBought ? "完了" : "研究") : "研究";
+          btn.disabled = !isOpen || (isBought && def.once) || !canAfford(cost);
+          btn.addEventListener("click", () => buyUpgrade(def));
+          action.appendChild(btn);
+
+          wrap.appendChild(main);
+          wrap.appendChild(action);
+
+          ui.upgradeShop.appendChild(wrap);
+        }
+      }
+
+      function renderAll(){
+        renderTop();
+        renderAgentShop();
+        renderUpgradeShop();
+      }
+
+      function save(){
+        const payload = {
+          sats: state.sats,
+          totalMined: state.totalMined,
+          clickPower: state.clickPower,
+          agents: state.agents,
+          upgrades: state.upgrades,
+          multipliers: state.multipliers,
+          lastSave: nowMs(),
+          log: state.log,
+          carry: state.carry
+        };
+        try{
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          state.lastSave = payload.lastSave;
+          ui.saveState.textContent = "保存済み " + new Date(state.lastSave).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+          toast("保存した");
+        }catch(e){
+          toast("保存できない: ストレージ制限の可能性");
+        }
+      }
+
+      function load(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const data = JSON.parse(raw);
+
+          const fresh = makeDefaultState();
+          fresh.sats = typeof data.sats === "number" ? data.sats : 0;
+          fresh.totalMined = typeof data.totalMined === "number" ? data.totalMined : 0;
+          fresh.clickPower = typeof data.clickPower === "number" ? data.clickPower : 1;
+          fresh.agents = Object.assign(fresh.agents, data.agents || {});
+          fresh.upgrades = Object.assign(fresh.upgrades, data.upgrades || {});
+          fresh.multipliers = Object.assign(fresh.multipliers, data.multipliers || {});
+          fresh.lastSave = typeof data.lastSave === "number" ? data.lastSave : nowMs();
+          fresh.lastTick = nowMs();
+          fresh.log = Array.isArray(data.log) ? data.log.slice(0, 20) : [];
+          fresh.carry = typeof data.carry === "number" ? data.carry : 0;
+
+          state = fresh;
+          return true;
+        }catch(e){
+          return false;
+        }
+      }
+
+      function exportSave(){
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw){
+          toast("保存データがない");
+          return;
+        }
+        const b64 = btoa(unescape(encodeURIComponent(raw)));
+        navigator.clipboard?.writeText(b64).then(
+          () => toast("エクスポートをコピーした"),
+          () => prompt("下の文字列をコピー", b64)
+        );
+      }
+
+      function importSave(){
+        const b64 = prompt("エクスポート文字列を貼り付け");
+        if (!b64) return;
+        try{
+          const raw = decodeURIComponent(escape(atob(b64)));
+          JSON.parse(raw);
+          localStorage.setItem(STORAGE_KEY, raw);
+          loadWithOffline();
+          toast("インポートした");
+        }catch(e){
+          toast("インポート失敗: 文字列が不正");
+        }
+      }
+
+      function resetAll(){
+        const ok = confirm("本当にリセットする？");
+        if (!ok) return;
+        localStorage.removeItem(STORAGE_KEY);
+        state = makeDefaultState();
+        pushLog("リセット完了");
+        renderAll();
+        save();
+      }
+
+      function loadWithOffline(){
+        const loaded = load();
+        if (loaded){
+          const last = state.lastSave || nowMs();
+          const deltaSec = clampNonNeg((nowMs() - last) / 1000);
+          const r = computeRateSatsPerSec();
+          const gain = safeMul(r, deltaSec);
+          const gained = Math.floor(gain);
+          if (gained > 0){
+            addSats(gained);
+            state.offlineGainLast = gained;
+            pushLog("オフライン収益 +" + formatSatsInt(gained));
+          } else {
+            state.offlineGainLast = 0;
+          }
+          ui.saveState.textContent = "読み込み " + new Date(last).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+        } else {
+          state.offlineGainLast = 0;
+          pushLog("新規セッション開始");
+        }
+        renderAll();
+      }
+
+      function tick(){
+        const t = nowMs();
+        const dt = (t - state.lastTick) / 1000;
+        state.lastTick = t;
+
+        const r = computeRateSatsPerSec();
+        const gain = safeMul(r, dt);
+
+        state.carry = clampNonNeg(state.carry + gain);
+        const gained = Math.floor(state.carry);
+        if (gained > 0){
+          state.carry = clampNonNeg(state.carry - gained);
+          state.sats = clampNonNeg(state.sats + gained);
+          state.totalMined = clampNonNeg(state.totalMined + gained);
+        }
+
+        renderTop();
+
+        if (t - state.lastSave > 20000){
+          save();
+        }
+      }
+
+      function wire(){
+        ui.mineBtn.addEventListener("click", mineClick);
+        ui.saveBtn.addEventListener("click", save);
+        ui.exportBtn.addEventListener("click", exportSave);
+        ui.importBtn.addEventListener("click", importSave);
+        ui.resetBtn.addEventListener("click", resetAll);
+
+        window.addEventListener("keydown", (e) => {
+          if (e.code === "Space"){
+            e.preventDefault();
+            mineClick();
+          }
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden"){
+            save();
+          }
+        });
+
+        window.addEventListener("beforeunload", () => {
+          try{ save(); }catch(e){}
+        });
+      }
+
+      loadWithOffline();
+      wire();
+      setInterval(tick, 100);
+
+      pushLog("Spaceキーでも採掘できる");
+    })();
+  </script>
+</body>
+</html>
